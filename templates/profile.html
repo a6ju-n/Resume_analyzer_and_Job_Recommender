@@ -1,0 +1,102 @@
+{% extends "app_base.html" %}
+{% block title %}Profile · Resume Analyzer &amp; Job Recommender{% endblock %}
+{% block page_title %}Profile{% endblock %}
+{% block content %}
+{% if not resume %}
+  <div class="panel">
+    <div class="empty">
+      <i class="bi bi-person"></i>
+      <p class="mb-1 fw-semibold">Your profile is built from your resume</p>
+      <p class="text-muted-2 mb-3">Upload a resume and your contact details, skills and best job matches will appear here.</p>
+      <a href="{{ url_for('resume.upload') }}" class="btn btn-primary btn-sm"><i class="bi bi-upload me-2"></i>Upload resume</a>
+    </div>
+  </div>
+{% else %}
+<div class="row g-3">
+  <div class="col-lg-8">
+    <div class="panel mb-3">
+      <div class="d-flex align-items-center gap-3 flex-wrap">
+        <div class="avatar" aria-hidden="true">{{ initials }}</div>
+        <div class="flex-grow-1">
+          <h2 class="h5 mb-1">{{ name or 'Name not found in resume' }}</h2>
+          <div class="text-muted-2 small d-flex flex-wrap gap-3">
+            <span><i class="bi bi-envelope me-1"></i>{{ parsed.get('email') or '—' }}</span>
+            <span><i class="bi bi-telephone me-1"></i>{{ parsed.get('phone') or '—' }}</span>
+            <span><i class="bi bi-linkedin me-1"></i>{{ parsed.get('linkedin') or '—' }}</span>
+          </div>
+        </div>
+        {% if resumes|length > 1 %}
+        <form method="get" class="d-flex align-items-center gap-2">
+          <label for="src" class="text-muted-2 small mb-0">Built from</label>
+          <select id="src" name="resume_id" class="form-select form-select-sm" onchange="this.form.submit()"
+                  style="background:var(--panel-2);color:var(--text);border-color:var(--line);max-width:210px">
+            {% for r in resumes %}
+              <option value="{{ r.id }}" {{ 'selected' if r.id == resume.id }}>{{ r.original_filename }}</option>
+            {% endfor %}
+          </select>
+        </form>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="panel mb-3">
+      <h2 class="h6 mb-3"><i class="bi bi-code-slash me-2"></i>Skills</h2>
+      {% for label, items, cls in [('Programming languages', languages, 'lang-chip'), ('Frameworks, tools & platforms', tools, 'fw-chip'), ('Concepts', concepts, '')] %}
+        {% if items or label != 'Concepts' %}
+        <p class="text-muted-2 small fw-semibold mb-2">{{ label }}</p>
+        <div class="d-flex flex-wrap gap-2 mb-3">
+          {% for s in items %}<span class="skill-chip {{ cls }}">{{ s }}</span>
+          {% else %}<span class="text-muted-2 small">None detected</span>{% endfor %}
+        </div>
+        {% endif %}
+      {% endfor %}
+    </div>
+
+    {% if parsed.get('education') %}
+    <div class="panel mb-3">
+      <h2 class="h6 mb-3"><i class="bi bi-mortarboard me-2"></i>Education</h2>
+      <pre class="section-pre mb-0">{{ parsed.get('education') }}</pre>
+    </div>
+    {% endif %}
+
+    {% if analysis.get('improvement_suggestions') %}
+    <div class="panel">
+      <h2 class="h6 mb-3"><i class="bi bi-lightbulb me-2"></i>Top improvements</h2>
+      <ul class="mb-0 small">
+        {% for s in analysis.improvement_suggestions[:3] %}<li class="mb-1">{{ s }}</li>{% endfor %}
+      </ul>
+    </div>
+    {% endif %}
+  </div>
+
+  <div class="col-lg-4">
+    <div class="row g-3 mb-3">
+      <div class="col-6"><div class="panel"><div class="text-muted-2 small">Resumes</div><div class="stat">{{ stats.total }}</div></div></div>
+      <div class="col-6"><div class="panel"><div class="text-muted-2 small">Average score</div><div class="stat">{{ stats.avg_score if stats.avg_score is not none else '–' }}</div></div></div>
+    </div>
+
+    <div class="panel mb-3">
+      <h2 class="h6 mb-2"><i class="bi bi-bullseye me-2"></i>Target role</h2>
+      {% if resume.selected_role %}
+        <p class="fw-semibold mb-0">{{ resume.selected_role }}</p>
+      {% else %}
+        <p class="text-muted-2 small mb-0">Not chosen yet. Pick one on the Job Matches page.</p>
+      {% endif %}
+    </div>
+
+    <div class="panel">
+      <h2 class="h6 mb-3">Best job matches</h2>
+      {% for job in jobs %}
+        <div class="mb-3">
+          <div class="d-flex justify-content-between small mb-1"><span class="fw-semibold">{{ job.role }}</span><span class="text-muted-2">{{ job.match_percent }}%</span></div>
+          <div class="match-bar"><div class="match-bar__fill {{ 'match-bar--high' if job.match_percent >= 70 else ('match-bar--mid' if job.match_percent >= 45 else 'match-bar--low') }}" style="width:{{ job.match_percent }}%"></div></div>
+        </div>
+      {% else %}
+        <p class="text-muted-2 small">No matches yet. Add a skills section to your resume.</p>
+      {% endfor %}
+      <a href="{{ url_for('resume.jobs', resume_id=resume.id) }}" class="btn btn-ghost btn-sm w-100 mt-1">See all matches</a>
+    </div>
+  </div>
+</div>
+{% endif %}
+{% endblock %}

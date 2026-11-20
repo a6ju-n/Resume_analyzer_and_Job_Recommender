@@ -1,0 +1,62 @@
+{% extends "app_base.html" %}
+{% block title %}Settings · Resume Analyzer &amp; Job Recommender{% endblock %}
+{% block page_title %}Settings{% endblock %}
+{% block content %}
+<div class="row g-3">
+  <div class="col-lg-7">
+    <div class="panel mb-3">
+      <div class="d-flex justify-content-between align-items-start mb-3">
+        <h2 class="h6 mb-0"><i class="bi bi-cpu me-2"></i>AI engine (Ollama)</h2>
+        <span class="badge bg-{{ 'success' if online else 'danger' }}">{{ 'Connected' if online else 'Not reachable' }}</span>
+      </div>
+      <dl class="row small mb-3">
+        <dt class="col-4 text-muted-2">Server</dt><dd class="col-8">{{ host }}</dd>
+        <dt class="col-4 text-muted-2">Active model</dt><dd class="col-8">{{ model }}</dd>
+      </dl>
+      {% if not online %}
+        <p class="text-muted-2 small">Start Ollama to get the AI quality score. Job matching still works without it.</p>
+      {% endif %}
+      <form method="post" action="{{ url_for('settings.save_model') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <label for="model" class="form-label small text-muted-2">Model used for resume analysis</label>
+        {% if installed %}
+          <select id="model" name="model" class="form-select form-select-sm mb-3" style="background:var(--panel-2);color:var(--text);border-color:var(--line)">
+            {% for m in installed %}<option value="{{ m }}" {{ 'selected' if m == model }}>{{ m }}</option>{% endfor %}
+          </select>
+        {% else %}
+          <input id="model" name="model" value="{{ model }}" class="form-control form-control-sm mb-3" style="background:var(--panel-2);color:var(--text);border-color:var(--line)">
+        {% endif %}
+        <div class="d-flex gap-2">
+          <button class="btn btn-primary btn-sm">Save model</button>
+          {% if model != default_model %}
+            <button class="btn btn-ghost btn-sm" name="model" value="">Reset to {{ default_model }}</button>
+          {% endif %}
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div class="col-lg-5">
+    <div class="panel mb-3">
+      <h2 class="h6 mb-3"><i class="bi bi-file-earmark-arrow-up me-2"></i>Uploads</h2>
+      <dl class="row small mb-0">
+        <dt class="col-6 text-muted-2">Allowed types</dt><dd class="col-6">PDF, DOCX</dd>
+        <dt class="col-6 text-muted-2">Max file size</dt><dd class="col-6">{{ max_mb }} MB</dd>
+        <dt class="col-6 text-muted-2">Stored resumes</dt><dd class="col-6">{{ resume_count }}</dd>
+        <dt class="col-6 text-muted-2">Storage used</dt><dd class="col-6">{{ storage_kb }} KB</dd>
+      </dl>
+      <p class="text-muted-2 small mt-3 mb-0">The size limit is set with <code>MAX_UPLOAD_MB</code> in your <code>.env</code> file.</p>
+    </div>
+
+    <div class="panel">
+      <h2 class="h6 mb-2"><i class="bi bi-trash3 me-2"></i>Your data</h2>
+      <p class="text-muted-2 small">Resumes stay on this computer. This permanently deletes every uploaded resume, its analysis and job matches.</p>
+      <form method="post" action="{{ url_for('settings.clear_data') }}"
+            onsubmit="return confirm('Delete all {{ resume_count }} resume(s)? This cannot be undone.');">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button class="btn btn-ghost btn-sm text-danger" {{ 'disabled' if not resume_count }}>Delete all resumes</button>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

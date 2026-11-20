@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block body %}
+<div class="shell">
+  <aside class="sidebar" id="sidebar">
+    <a class="brand mb-4" href="{{ url_for('main.landing') }}"><i class="bi bi-file-earmark-person-fill"></i> Resume Analyzer</a>
+    <nav class="nav flex-column gap-1" aria-label="Main">
+      {% set items = [
+        ('dashboard.index',  'grid',                'Dashboard'),
+        ('profile.index',    'person',              'Profile'),
+        ('resume.upload',    'file-earmark-arrow-up','Resume'),
+        ('resume.history',   'clock-history',       'History'),
+        ('settings.index',   'gear',                'Settings')] %}
+      {% for endpoint, icon, label in items %}
+        {% if endpoint %}
+          <a class="side-link {{ 'active' if request.endpoint == endpoint }}" href="{{ url_for(endpoint) }}"><i class="bi bi-{{ icon }}"></i>{{ label }}</a>
+        {% else %}
+          <span class="side-link disabled" aria-disabled="true"><i class="bi bi-{{ icon }}"></i>{{ label }}<small>Soon</small></span>
+        {% endif %}
+      {% endfor %}
+    </nav>
+  </aside>
+  <div class="content">
+    <div class="topbar">
+      <button class="btn btn-ghost d-lg-none" id="menuBtn" aria-label="Toggle menu"><i class="bi bi-list"></i></button>
+      <h1 class="h5 mb-0">{% block page_title %}{% endblock %}</h1>
+    </div>
+    <main class="page">
+      {% include "partials/flashes.html" %}
+      {% block content %}{% endblock %}
+    </main>
+  </div>
+</div>
+{% endblock %}

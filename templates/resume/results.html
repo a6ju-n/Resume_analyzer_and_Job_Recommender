@@ -1,0 +1,266 @@
+{% extends "app_base.html" %}
+{% block title %}Analysis Results · Resume Analyzer &amp; Job Recommender{% endblock %}
+{% block page_title %}Resume Analysis{% endblock %}
+
+{% block content %}
+{% set analysis = resume.ai_analysis or {} %}
+{% set parsed   = resume.parsed_data  or {} %}
+
+<!-- Breadcrumb -->
+<nav aria-label="breadcrumb" class="mb-3">
+  <ol class="breadcrumb breadcrumb-custom">
+    <li class="breadcrumb-item"><a href="{{ url_for('resume.history') }}">My Resumes</a></li>
+    <li class="breadcrumb-item active" aria-current="page">{{ resume.original_filename }}</li>
+  </ol>
+</nav>
+
+{% if resume.analysis_status == 'error' %}
+<!-- Error state -->
+<div class="panel border-danger mb-4">
+  <div class="d-flex gap-3 align-items-start">
+    <i class="bi bi-exclamation-triangle-fill text-danger fs-4 mt-1"></i>
+    <div>
+      <h2 class="h6 mb-1">Analysis failed</h2>
+      <p class="text-muted-2 small mb-3">{{ resume.analysis_error }}</p>
+      <form method="POST" action="{{ url_for('resume.reanalyse', resume_id=resume.id) }}" class="d-inline">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button class="btn btn-primary btn-sm">
+          <i class="bi bi-arrow-clockwise me-1"></i>Retry Analysis
+        </button>
+      </form>
+      <a href="{{ url_for('resume.upload') }}" class="btn btn-ghost btn-sm ms-2">Upload different file</a>
+    </div>
+  </div>
+</div>
+
+{% elif resume.analysis_status in ('pending', 'analysing') %}
+<!-- In-progress state -->
+<div class="panel text-center py-5 mb-4">
+  <div class="spinner-border text-primary mb-3" role="status" style="width:3rem;height:3rem"></div>
+  <h2 class="h6">Analysing your resume…</h2>
+  <p class="text-muted-2 small">This may take 1–2 minutes. The page will refresh automatically.</p>
+</div>
+<script>
+  setTimeout(() => location.reload(), 5000);
+</script>
+
+{% else %}
+<!-- ===== DONE ===== -->
+<div class="row g-4">
+
+  <!-- Left col: score + summary -->
+  <div class="col-lg-4">
+
+    <!-- Score ring -->
+    <div class="panel text-center mb-3">
+      {% set score = analysis.get('quality_score') %}
+      <div class="score-ring mx-auto mb-3"
+           style="--pct:{{ score or 0 }};--clr:{{ '#3ecf8e' if (score or 0) >= 70 else ('#f59e0b' if (score or 0) >= 45 else '#ef4444') }}">
+        <span class="score-num">{{ score if score is not none else '–' }}</span>
+        <span class="score-label">/ 100</span>
+      </div>
+      <h2 class="h6 mb-1">Resume Quality Score</h2>
+      <p class="text-muted-2 small mb-0">{{ analysis.get('overall_summary', '') }}</p>
+    </div>
+
+    <!-- File meta -->
+    <div class="panel mb-3">
+      <h3 class="h6 mb-3">File details</h3>
+      <dl class="row row-cols-2 g-1 mb-0 small">
+        <dt class="text-muted-2">Filename</dt>
+        <dd class="text-truncate">{{ resume.original_filename }}</dd>
+        <dt class="text-muted-2">Type</dt>
+        <dd>{{ resume.file_type | upper }}</dd>
+        <dt class="text-muted-2">Uploaded</dt>
+        <dd>{{ resume.created_at.strftime('%d %b %Y') }}</dd>
+        <dt class="text-muted-2">Candidate</dt>
+        <dd>{{ parsed.get('name') or '—' }}</dd>
+        <dt class="text-muted-2">Email</dt>
+        <dd>{{ parsed.get('email') or '—' }}</dd>
+        <dt class="text-muted-2">Phone</dt>
+        <dd>{{ parsed.get('phone') or '—' }}</dd>
+      </dl>
+    </div>
+
+    <!-- Actions -->
+    <div class="d-grid gap-2">
+      <a href="{{ url_for('resume.jobs', resume_id=resume.id) }}" class="btn btn-primary">
+        <i class="bi bi-bullseye me-2"></i>View Job Matches
+      </a>
+      <form method="POST" action="{{ url_for('resume.reanalyse', resume_id=resume.id) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button class="btn btn-ghost w-100"><i class="bi bi-arrow-clockwise me-2"></i>Re-analyse</button>
+      </form>
+      <form method="POST" action="{{ url_for('resume.delete', resume_id=resume.id) }}"
+            onsubmit="return confirm('Delete this resume and all analysis data?')">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button class="btn btn-ghost w-100 text-danger"><i class="bi bi-trash me-2"></i>Delete Resume</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Right col: analysis detail -->
+  <div class="col-lg-8">
+
+    <!-- Strengths / Weaknesses accordion -->
+    <div class="panel mb-3">
+      <div class="accordion accordion-flush" id="swAccordion">
+
+        <div class="accordion-item" style="background:transparent;border-color:var(--line)">
+          <h2 class="accordion-header">
+            <button class="accordion-button collapsed" type="button"
+                    data-bs-toggle="collapse" data-bs-target="#colStrengths"
+                    style="background:var(--panel-2);color:var(--text)">
+              <i class="bi bi-hand-thumbs-up text-success me-2"></i>
+              Strengths ({{ analysis.get('strengths', [])|length }})
+            </button>
+          </h2>
+          <div id="colStrengths" class="accordion-collapse collapse show" data-bs-parent="#swAccordion">
+            <div class="accordion-body pt-2">
+              {% for s in analysis.get('strengths', []) %}
+                <div class="d-flex gap-2 mb-2">
+                  <i class="bi bi-check-circle-fill text-success mt-1 flex-shrink-0"></i>
+                  <span class="small">{{ s }}</span>
+                </div>
+              {% else %}
+                <p class="text-muted-2 small mb-0">No strengths identified.</p>
+              {% endfor %}
+            </div>
+          </div>
+        </div>
+
+        <div class="accordion-item" style="background:transparent;border-color:var(--line)">
+          <h2 class="accordion-header">
+            <button class="accordion-button collapsed" type="button"
+                    data-bs-toggle="collapse" data-bs-target="#colWeaknesses"
+                    style="background:var(--panel-2);color:var(--text)">
+              <i class="bi bi-exclamation-circle text-warning me-2"></i>
+              Weaknesses ({{ analysis.get('weaknesses', [])|length }})
+            </button>
+          </h2>
+          <div id="colWeaknesses" class="accordion-collapse collapse" data-bs-parent="#swAccordion">
+            <div class="accordion-body pt-2">
+              {% for w in analysis.get('weaknesses', []) %}
+                <div class="d-flex gap-2 mb-2">
+                  <i class="bi bi-exclamation-circle-fill text-warning mt-1 flex-shrink-0"></i>
+                  <span class="small">{{ w }}</span>
+                </div>
+              {% else %}
+                <p class="text-muted-2 small mb-0">No weaknesses identified.</p>
+              {% endfor %}
+            </div>
+          </div>
+        </div>
+
+        <div class="accordion-item" style="background:transparent;border-color:var(--line)">
+          <h2 class="accordion-header">
+            <button class="accordion-button collapsed" type="button"
+                    data-bs-toggle="collapse" data-bs-target="#colMissing"
+                    style="background:var(--panel-2);color:var(--text)">
+              <i class="bi bi-dash-circle text-danger me-2"></i>
+              Missing information ({{ analysis.get('missing_information', [])|length }})
+            </button>
+          </h2>
+          <div id="colMissing" class="accordion-collapse collapse" data-bs-parent="#swAccordion">
+            <div class="accordion-body pt-2">
+              {% for m in analysis.get('missing_information', []) %}
+                <div class="d-flex gap-2 mb-2">
+                  <i class="bi bi-dash-circle-fill text-danger mt-1 flex-shrink-0"></i>
+                  <span class="small">{{ m }}</span>
+                </div>
+              {% else %}
+                <p class="text-muted-2 small mb-0">Nothing missing — great!</p>
+              {% endfor %}
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Improvement suggestions -->
+    <div class="panel mb-3">
+      <h3 class="h6 mb-3"><i class="bi bi-lightbulb text-warning me-2"></i>Improvement Suggestions</h3>
+      {% for tip in analysis.get('improvement_suggestions', []) %}
+        <div class="suggestion-row d-flex gap-3 mb-3">
+          <span class="suggestion-num">{{ loop.index }}</span>
+          <p class="mb-0 small">{{ tip }}</p>
+        </div>
+      {% else %}
+        <p class="text-muted-2 small mb-0">No suggestions at this time.</p>
+      {% endfor %}
+    </div>
+
+    <!-- Extracted sections -->
+    <div class="panel">
+      <h3 class="h6 mb-3"><i class="bi bi-code-slash me-2"></i>Extracted Sections</h3>
+
+      <!-- Skills -->
+      <div class="mb-3">
+        <p class="text-muted-2 small mb-2 fw-semibold">Technical Skills</p>
+        <div class="d-flex flex-wrap gap-2">
+          {% for s in parsed.get('skills', []) %}
+            <span class="skill-chip">{{ s }}</span>
+          {% else %}
+            <span class="text-muted-2 small">None detected</span>
+          {% endfor %}
+        </div>
+      </div>
+
+      <!-- Programming languages -->
+      <div class="mb-3">
+        <p class="text-muted-2 small mb-2 fw-semibold">Programming Languages</p>
+        <div class="d-flex flex-wrap gap-2">
+          {% for l in parsed.get('programming_languages', []) %}
+            <span class="skill-chip lang-chip">{{ l }}</span>
+          {% else %}
+            <span class="text-muted-2 small">None detected</span>
+          {% endfor %}
+        </div>
+      </div>
+
+      <!-- Frameworks / Tools -->
+      <div class="mb-3">
+        <p class="text-muted-2 small mb-2 fw-semibold">Frameworks & Tools</p>
+        <div class="d-flex flex-wrap gap-2">
+          {% for f in parsed.get('frameworks', []) %}
+            <span class="skill-chip fw-chip">{{ f }}</span>
+          {% else %}
+            <span class="text-muted-2 small">None detected</span>
+          {% endfor %}
+        </div>
+      </div>
+
+      <!-- Education -->
+      {% if parsed.get('education') %}
+      <div class="mb-3">
+        <p class="text-muted-2 small mb-1 fw-semibold">Education</p>
+        <pre class="section-pre">{{ parsed.get('education') }}</pre>
+      </div>
+      {% endif %}
+
+      <!-- Experience -->
+      {% if parsed.get('experience') %}
+      <div class="mb-3">
+        <p class="text-muted-2 small mb-1 fw-semibold">Experience</p>
+        <pre class="section-pre">{{ parsed.get('experience') }}</pre>
+      </div>
+      {% endif %}
+
+      <!-- Projects -->
+      {% if parsed.get('projects') %}
+      <div class="mb-0">
+        <p class="text-muted-2 small mb-1 fw-semibold">Projects</p>
+        <pre class="section-pre">{{ parsed.get('projects') }}</pre>
+      </div>
+      {% endif %}
+    </div>
+
+  </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/resume.js') }}"></script>
+{% endblock %}

@@ -1,0 +1,56 @@
+{% extends "app_base.html" %}
+{% block title %}Dashboard · Resume Analyzer &amp; Job Recommender{% endblock %}
+{% block page_title %}Dashboard{% endblock %}
+{% block content %}
+{% set s = stats or {} %}
+<div class="row g-3 mb-3">
+  {% for label, value in [
+    ('Resumes uploaded', s.get('total', 0)),
+    ('Analysed', s.get('analysed', 0)),
+    ('Average quality score', (s.avg_score ~ '/100') if s.get('avg_score') is not none else '–'),
+    ('Best role match', (s.best_role ~ ' · ' ~ s.best_percent ~ '%') if s.get('best_role') else '–')] %}
+  <div class="col-6 col-xl-3">
+    <div class="panel"><div class="text-muted-2 small">{{ label }}</div><div class="stat{{ ' fs-5' if label == 'Best role match' and s.get('best_role') }}">{{ value }}</div></div>
+  </div>
+  {% endfor %}
+</div>
+
+<div class="row g-3">
+  <div class="col-lg-8">
+    <div class="panel">
+      <h2 class="h6">Recent resumes</h2>
+      {% if s.get('recent') %}
+        <ul class="list-unstyled mb-0">
+          {% for r in s.recent %}
+          {% set a = r.ai_analysis or {} %}
+          <li class="d-flex align-items-center gap-2 py-2 border-bottom border-panel">
+            <i class="bi bi-file-earmark-{{ 'pdf' if r.file_type == 'pdf' else 'word' }} text-muted-2"></i>
+            <a href="{{ url_for('resume.results', resume_id=r.id) }}" class="text-truncate small">{{ r.original_filename }}</a>
+            {% if a.get('quality_score') is not none %}<span class="small text-muted-2 ms-auto">{{ a.quality_score }}/100</span>{% endif %}
+            <span class="badge bg-{{ r.status_badge[0] }}{{ '' if a.get('quality_score') is not none else ' ms-auto' }}">{{ r.status_badge[1] }}</span>
+          </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <div class="empty">
+          <i class="bi bi-file-earmark-text"></i>
+          <p class="mb-1 fw-semibold">No resumes yet</p>
+          <p class="text-muted-2 mb-3">Upload a resume to see its quality score and job matches here.</p>
+          <a href="{{ url_for('resume.upload') }}" class="btn btn-primary btn-sm"><i class="bi bi-upload me-2"></i>Upload resume</a>
+        </div>
+      {% endif %}
+    </div>
+  </div>
+  <div class="col-lg-4">
+    <div class="panel">
+      <h2 class="h6">Get started</h2>
+      <ol class="steps">
+        <li class="done">Run the app <small>Done</small></li>
+        <li class="{{ 'done' if s.get('total') }}">Upload your resume</li>
+        <li class="{{ 'done' if s.get('analysed') }}">Review your analysis</li>
+        <li class="{{ 'done' if s.get('best_role') }}">Explore job matches</li>
+      </ol>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,156 @@
+{% extends "app_base.html" %}
+{% block title %}Job Matches · Resume Analyzer &amp; Job Recommender{% endblock %}
+{% block page_title %}Job Matches{% endblock %}
+
+{% block content %}
+{% set jobs  = resume.job_recommendations or [] %}
+{% set parsed = resume.parsed_data or {} %}
+
+<!-- Breadcrumb -->
+<nav aria-label="breadcrumb" class="mb-3">
+  <ol class="breadcrumb breadcrumb-custom">
+    <li class="breadcrumb-item"><a href="{{ url_for('resume.results', resume_id=resume.id) }}">Analysis Results</a></li>
+    <li class="breadcrumb-item active" aria-current="page">Job Matches</li>
+  </ol>
+</nav>
+
+<div class="row g-4">
+
+  <!-- Left col: manual role selector -->
+  <div class="col-lg-4 col-xl-3">
+    <div class="panel">
+      <h2 class="h6 mb-3"><i class="bi bi-sliders me-2"></i>Select Target Role</h2>
+      <p class="text-muted-2 small mb-3">Pick the role you are aiming for. It is saved to your profile.</p>
+      <form method="POST" action="{{ url_for('resume.select_role', resume_id=resume.id) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <select name="role" class="form-select form-select-sm mb-3" style="background:var(--panel-2);color:var(--text);border-color:var(--line)">
+          <option value="">— choose a role —</option>
+          {% for role in all_roles %}
+            <option value="{{ role }}" {{ 'selected' if resume.selected_role == role }}>{{ role }}</option>
+          {% endfor %}
+        </select>
+        <button class="btn btn-primary btn-sm w-100">Set Target Role</button>
+      </form>
+
+      {% if resume.selected_role %}
+      <div class="mt-3 p-2 rounded" style="background:var(--panel-2);border:1px solid var(--line)">
+        <p class="text-muted-2 small mb-1">Current target</p>
+        <p class="fw-semibold mb-0 small">{{ resume.selected_role }}</p>
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- Back links -->
+    <div class="mt-3 d-grid gap-2">
+      <a href="{{ url_for('resume.results', resume_id=resume.id) }}" class="btn btn-ghost btn-sm">
+        <i class="bi bi-arrow-left me-1"></i>Back to Results
+      </a>
+      <a href="{{ url_for('resume.upload') }}" class="btn btn-ghost btn-sm">
+        <i class="bi bi-upload me-1"></i>Upload New Resume
+      </a>
+    </div>
+  </div>
+
+  <!-- Right col: job cards -->
+  <div class="col-lg-8 col-xl-9">
+    {% if not jobs %}
+      <div class="panel">
+        <div class="empty">
+          <i class="bi bi-bullseye"></i>
+          <p class="mb-1 fw-semibold">No job recommendations yet</p>
+          <p class="text-muted-2 small mb-3">
+            {% if resume.is_scanned %}
+              This resume is a scanned image, so no text could be read from it.
+            {% else %}
+              None of the skills we look for were found in this resume. Add a Skills section that lists
+              your languages, frameworks and tools, then upload it again.
+            {% endif %}
+          </p>
+          <a href="{{ url_for('resume.results', resume_id=resume.id) }}" class="btn btn-primary btn-sm">
+            Go to Results
+          </a>
+        </div>
+      </div>
+    {% else %}
+      <div class="row g-3">
+        {% for job in jobs %}
+        <div class="col-12">
+          <div class="panel job-card {{ 'job-card--selected' if resume.selected_role == job.role }}">
+            <div class="d-flex justify-content-between align-items-start mb-3 flex-wrap gap-2">
+              <div>
+                <h3 class="h6 mb-0">
+                  {{ job.role }}
+                  {% if resume.selected_role == job.role %}
+                    <span class="badge bg-primary ms-2 small">Your target</span>
+                  {% endif %}
+                </h3>
+                {% if job.recommendation %}
+                  <p class="text-muted-2 small mt-1 mb-0">{{ job.recommendation }}</p>
+                {% endif %}
+              </div>
+              <div class="text-end">
+                <span class="match-pct {{ 'text-success' if job.match_percent >= 70 else ('text-warning' if job.match_percent >= 45 else 'text-danger') }}">
+                  {{ job.match_percent }}%
+                </span>
+                <p class="text-muted-2 small mb-0">match</p>
+              </div>
+            </div>
+
+            <!-- Match bar -->
+            <div class="match-bar mb-3">
+              <div class="match-bar__fill {{ 'match-bar--high' if job.match_percent >= 70 else ('match-bar--mid' if job.match_percent >= 45 else 'match-bar--low') }}"
+                   style="width:{{ job.match_percent }}%"></div>
+            </div>
+
+            <div class="row g-3">
+              <!-- Matching skills -->
+              <div class="col-md-6">
+                <p class="text-muted-2 small fw-semibold mb-2">
+                  <i class="bi bi-check-circle-fill text-success me-1"></i>Matching skills
+                </p>
+                <div class="d-flex flex-wrap gap-1">
+                  {% for s in job.matching_skills %}
+                    <span class="skill-chip skill-chip--match">{{ s }}</span>
+                  {% else %}
+                    <span class="text-muted-2 small">None listed</span>
+                  {% endfor %}
+                </div>
+              </div>
+              <!-- Missing skills -->
+              <div class="col-md-6">
+                <p class="text-muted-2 small fw-semibold mb-2">
+                  <i class="bi bi-dash-circle-fill text-danger me-1"></i>Missing skills
+                </p>
+                <div class="d-flex flex-wrap gap-1">
+                  {% for s in job.missing_skills %}
+                    <span class="skill-chip skill-chip--missing">{{ s }}</span>
+                  {% else %}
+                    <span class="text-muted-2 small">None listed</span>
+                  {% endfor %}
+                </div>
+              </div>
+            </div>
+
+            <!-- Set as target -->
+            <div class="mt-3 text-end">
+              <form method="POST" action="{{ url_for('resume.select_role', resume_id=resume.id) }}" class="d-inline">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="role" value="{{ job.role }}">
+                <button class="btn btn-ghost btn-sm {{ 'disabled' if resume.selected_role == job.role }}">
+                  {% if resume.selected_role == job.role %}
+                    <i class="bi bi-check me-1"></i>Selected
+                  {% else %}
+                    <i class="bi bi-bullseye me-1"></i>Set as target
+                  {% endif %}
+                </button>
+              </form>
+            </div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    {% endif %}
+  </div>
+
+</div>
+{% endblock %}

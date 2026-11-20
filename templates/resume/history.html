@@ -1,0 +1,101 @@
+{% extends "app_base.html" %}
+{% block title %}Resume History · Resume Analyzer &amp; Job Recommender{% endblock %}
+{% block page_title %}Resume History{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <p class="text-muted-2 small mb-0">{{ resumes|length }} resume{{ 's' if resumes|length != 1 }}</p>
+  <a href="{{ url_for('resume.upload') }}" class="btn btn-primary btn-sm">
+    <i class="bi bi-upload me-2"></i>Upload New Resume
+  </a>
+</div>
+
+{% if not resumes %}
+  <div class="panel">
+    <div class="empty">
+      <i class="bi bi-inbox"></i>
+      <p class="mb-1 fw-semibold">No resumes uploaded yet</p>
+      <p class="text-muted-2 small mb-3">Upload your first resume to get AI-powered analysis and job recommendations.</p>
+      <a href="{{ url_for('resume.upload') }}" class="btn btn-primary btn-sm">
+        <i class="bi bi-upload me-2"></i>Upload Resume
+      </a>
+    </div>
+  </div>
+{% else %}
+  <div class="panel p-0 overflow-hidden">
+    <table class="table table-dark table-hover mb-0" style="--bs-table-bg:var(--panel);--bs-table-hover-bg:var(--panel-2)">
+      <thead style="border-bottom:1px solid var(--line)">
+        <tr class="small text-muted-2">
+          <th class="ps-4 py-3">File</th>
+          <th class="py-3">Candidate</th>
+          <th class="py-3">Uploaded</th>
+          <th class="py-3">Score</th>
+          <th class="py-3">Status</th>
+          <th class="py-3">Target Role</th>
+          <th class="py-3 pe-4">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in resumes %}
+        {% set analysis = r.ai_analysis or {} %}
+        {% set parsed   = r.parsed_data  or {} %}
+        <tr>
+          <td class="ps-4 py-3">
+            <div class="d-flex align-items-center gap-2">
+              <i class="bi bi-file-earmark-{{ 'pdf text-danger' if r.file_type == 'pdf' else 'word text-primary' }} fs-5"></i>
+              <div>
+                <p class="mb-0 small fw-semibold text-truncate" style="max-width:160px" title="{{ r.original_filename }}">
+                  {{ r.original_filename }}
+                </p>
+                <p class="mb-0 small text-muted-2">{{ (r.file_size_bytes / 1024) | int }} KB</p>
+              </div>
+            </div>
+          </td>
+          <td class="py-3 small">{{ parsed.get('name') or '—' }}</td>
+          <td class="py-3 small text-muted-2">{{ r.created_at.strftime('%d %b %Y') }}</td>
+          <td class="py-3">
+            {% if analysis.get('quality_score') is not none %}
+              <span class="fw-bold {{ 'text-success' if analysis.quality_score >= 70 else ('text-warning' if analysis.quality_score >= 45 else 'text-danger') }}">
+                {{ analysis.quality_score }}<small class="text-muted-2 fw-normal">/100</small>
+              </span>
+            {% else %}
+              <span class="text-muted-2 small">—</span>
+            {% endif %}
+          </td>
+          <td class="py-3">
+            <span class="badge bg-{{ r.status_badge[0] }}">{{ r.status_badge[1] }}</span>
+          </td>
+          <td class="py-3 small text-muted-2">{{ r.selected_role or '—' }}</td>
+          <td class="py-3 pe-4">
+            <div class="d-flex gap-2">
+              {% if r.analysis_status == 'done' %}
+                <a href="{{ url_for('resume.results', resume_id=r.id) }}"
+                   class="btn btn-ghost btn-sm" title="View results">
+                  <i class="bi bi-graph-up"></i>
+                </a>
+                <a href="{{ url_for('resume.jobs', resume_id=r.id) }}"
+                   class="btn btn-ghost btn-sm" title="Job matches">
+                  <i class="bi bi-bullseye"></i>
+                </a>
+              {% elif r.analysis_status == 'error' %}
+                <a href="{{ url_for('resume.results', resume_id=r.id) }}"
+                   class="btn btn-ghost btn-sm text-danger" title="View error">
+                  <i class="bi bi-exclamation-triangle"></i>
+                </a>
+              {% endif %}
+              <form method="POST" action="{{ url_for('resume.delete', resume_id=r.id) }}"
+                    onsubmit="return confirm('Delete {{ r.original_filename | e }} and all its analysis data?')">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button class="btn btn-ghost btn-sm text-danger" title="Delete">
+                  <i class="bi bi-trash"></i>
+                </button>
+              </form>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+{% endif %}
+{% endblock %}
