@@ -42,7 +42,7 @@ Job matching is deliberately rule-based. A skill is either *matching* or *missin
 ### 2. Install
 
 ```bash
-git clone https://github.com/<your-username>/Resume_Analyzer.git
+git clone https://github.com/a6ju-n/Resume_analyzer_and_Job_Recommender.git
 cd Resume_Analyzer
 
 python -m venv env
